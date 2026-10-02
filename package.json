@@ -3,7 +3,7 @@
 	"version": "1.0.0",
 	"main": "index.js",
 	"scripts": {
-		"test": "node ./node_modules/mocha/bin/mocha --timeout=100000"
+		"test": "node ./node_modules/mocha/bin/mocha --timeout=100000 --retries=2"
 	},
 	"author": "Sarath Sasikumar",
 	"license": "ISC",

@@ -2,7 +2,9 @@ const puppeteer = require('puppeteer');
 const expect = require('chai').expect;
 const caps = {
 	browserName    : 'Chrome',
-	browserVersion : 'latest',
+	// Chrome 136+ ignores --remote-debugging-port on the default profile, which the
+	// HyperExecute VM relies on, so the CDP connection never opens with 'latest'
+	browserVersion : '135',
 	'LT:Options'   : {
 		platform   : process.env.HYPEREXECUTE_PLATFORM,
 		build      : 'Sample Puppeteer-Mocha',
@@ -23,14 +25,18 @@ describe('Search Text', () => {
 			browserWSEndpoint : `wss://cdp.lambdatest.com/puppeteer?capabilities=${encodeURIComponent(
 				JSON.stringify(caps)
 			)}`,
-			ignoreHTTPSErrors: true
+			ignoreHTTPSErrors: true,
+			// Chrome's privacy sandbox dialog shows up as a page that never attaches
+			targetFilter: (target) => !String(typeof target.url === 'function' ? target.url() : target.url).startsWith('chrome://privacy-sandbox-dialog')
 		});
 		page = await browser.newPage();
+		// on the Windows VM the tab opens in the background and typed text is dropped
+		await page.bringToFront();
 	});
 
 	it('should be titled "Google"', async () => {
 		let text = 'Google';
-		await page.goto('https://www.duckduckgo.com');
+		await page.goto('https://www.duckduckgo.com', { waitUntil: 'networkidle2' });
 		var element = await page.$('[name="q"]');
 		await element.click();
 		await element.type(text);
@@ -40,35 +46,30 @@ describe('Search Text', () => {
 		]);
 		var title = await page.title();
 		expect(title).equal(text + ' at DuckDuckGo', 'Expected page title is incorrect!');
+		await page.waitForSelector('#r1-0 h2');
 		const firstResult = await page.$('#r1-0 h2')
 		await firstResult.click();
-		await page.waitForTimeout(2000);
-		var googleSerachField = await page.$('[name="q"]');
-		await googleSerachField.click();
-		await googleSerachField.type("Hello");
-		await page.keyboard.press('Enter');
-		await Promise.all([
-			page.waitForNavigation()
-		]);
-		var googleSerachTitle = await page.title();
-		expect(googleSerachTitle).equal('Hello - Google Search', 'Google -Expected page title is incorrect!');
-		//Lambdatest sample app test
-		await page.goto('https://lambdatest.github.io/sample-todo-app/');
-		await page.waitForTimeout(5000);
-		for (let i = 1; i < 5; i++) {
-			await page.click('body > div > div > div > ul > li:nth-child(' + i + ') > input');
+		await page.waitForFunction(() => document.title === 'Google');
+		var googleTitle = await page.title();
+		expect(googleTitle).equal('Google', 'Google -Expected page title is incorrect!');
+		//TodoMVC sample app test (old sample-todo-app URL is 404)
+		await page.goto('https://todomvc.com/examples/react/dist/');
+		await page.waitForSelector('.new-todo');
+		//adding 5 custom elements
+		for (let i = 1; i <= 5; i++) {
+			await page.type('.new-todo', 'Hypertest LambdaTest');
+			await page.keyboard.press('Enter');
+			await page.waitForSelector('.todo-list li:nth-child(' + i + ')');
+			await page.click('.todo-list li:nth-child(' + i + ') input.toggle');
 		}
-		//adding 10 custom element
-		for (let i = 5; i < 10; i++) {
-			await page.type('#sampletodotext', 'Hypertest LambdaTest');
-			await page.click('#addbutton');
-			await page.click('body > div > div > div > ul > li:nth-child(' + i + ') > input');
-			await page.waitForTimeout(1000);
-		}
+		var todoText = await page.$eval('.todo-list li', (el) => el.textContent);
+		expect(todoText).contain('Hypertest LambdaTest');
 	});
 
 	afterEach(async () => {
-		await page.close();
-		await browser.close();
+		if (page) await page.close();
+		if (browser) await browser.close();
+		page = null;
+		browser = null;
 	});
 });

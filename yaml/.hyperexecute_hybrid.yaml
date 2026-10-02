@@ -15,12 +15,9 @@ concurrency: 3
 matrix:
   os: [mac, win, linux]
 
-env:
-  CACHE_DIR: m2_cache_dir
-
-cacheKey: '{{ checksum "pom.xml" }}'
+cacheKey: '{{ checksum "package.json" }}'
 cacheDirectories:
-  - ${CACHE_DIR}
+  - node_modules
 
 testDiscovery:
   type: raw
@@ -28,7 +25,8 @@ testDiscovery:
   command: grep -lr 'describe' specs/*.spec.js
 
 pre:
-  - mvn -Dmaven.repo.local=${CACHE_DIR} -Dmaven.test.skip=true clean install
+  - node scripts/clear-chrome-lock.js
+  - npm install
 
 post:
   - cat yaml/.hyperexecute_hybrid.yaml
