@@ -12,6 +12,8 @@ matrix:
 runson: ${matrix.os}
 
 pre:
+  # clear the stale Chrome profile lock left in the VM image
+  - rm -f ~/.config/google-chrome/Singleton*
   - npm install
 
 cacheKey: '{{ checksum "package.json" }}'
