@@ -25,7 +25,6 @@ testDiscovery:
   command: grep -lr 'describe' specs/*.spec.js
 
 pre:
-  - node scripts/clear-chrome-lock.js
   - npm install
 
 post:
